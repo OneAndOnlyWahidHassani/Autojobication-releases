@@ -118,3 +118,93 @@ folder is left in place. Delete `%APPDATA%\job-agent` too if you want everything
 | "anthropic_api_key not set" | See step 4. |
 | Chrome opens but LinkedIn shows a login page | See step 5, then click **I resolved it — resume**. |
 | Matching fails with an Ollama error | Make sure the Ollama app is running and the model is pulled, or switch **Match model** back to `haiku`. |
+
+---
+
+## Advanced: run from the terminal (CLI)
+
+Everything the app does is also available as command-line scripts, run from source.
+You do **not** need the installer, VS Code, or the desktop window — any terminal
+(PowerShell, Windows Terminal, …) works. This path suits a more technical user who
+wants to build from source, script runs, or work on a machine without the installed app.
+
+Windows paths are shown below; **macOS and Linux work the same way** — the API key
+goes into that OS's keychain and the config dir is the OS equivalent of `%APPDATA%`.
+
+### Requirements
+
+- **Node.js 22+** and **pnpm 12+** (`npm install -g pnpm`)
+- **Git**
+- **Google Chrome** — the main LinkedIn browser uses your installed Chrome
+- An **Anthropic API key** (`sk-ant-…`) from [console.anthropic.com](https://console.anthropic.com/)
+
+### One-time setup
+
+```powershell
+git clone https://github.com/OneAndOnlyWahidHassani/Autojobication.git
+cd Autojobication
+pnpm install
+
+# Chromium for applying on company career sites (Tier D).
+# Skip if you'll only use LinkedIn Easy Apply.
+pnpm --filter agent-sidecar exec playwright install chromium
+
+# Create your profile at %APPDATA%\job-agent\profile.json (copied from the example).
+pnpm --filter agent-sidecar exec tsx scripts/dev-cli.ts init-profile
+
+# Store your Claude key in the OS keychain (not a file).
+pnpm --filter agent-sidecar exec tsx scripts/dev-cli.ts set-key sk-ant-...
+```
+
+Then open `%APPDATA%\job-agent\profile.json` in any editor and replace the **Jane Doe**
+example with your own details (name, email, phone, location, CV summary, skills, the
+path to your résumé PDF, target titles, `custom_answers`, search entries). The file is
+validated on every run, so a typo fails loudly instead of applying as Jane Doe.
+
+### Daily use
+
+```powershell
+# 1. Find jobs. The first run opens Chrome — if LinkedIn asks, log in by hand once;
+#    the session is remembered in the app's own Chrome profile.
+pnpm --filter agent-sidecar exec tsx scripts/scrape.ts --max 20
+
+# 2. Review + approve. Without the UI, list jobs and approve by id in the DB:
+pnpm --filter agent-sidecar exec tsx scripts/dev-cli.ts list-jobs
+#    then, in any SQLite tool against %APPDATA%\job-agent\applications.db:
+#    UPDATE jobs SET status='approved' WHERE id = 42;
+
+# 3. Apply. Dry run fills the form and stops before Submit (the safe default).
+pnpm --filter agent-sidecar exec tsx scripts/apply.ts --dry-run
+
+# Apply on external career sites too (Workday / Greenhouse / Oracle / …),
+# leaving that browser open so you can inspect the filled form:
+pnpm --filter agent-sidecar exec tsx scripts/apply.ts --tier-d --keep-tier-d-open
+```
+
+### Common `apply` flags
+
+| Flag | Effect |
+| --- | --- |
+| `--id N` | Apply to one specific job id instead of the oldest approved one. |
+| `--dry-run` / `--submit` | Fill-and-stop (default) vs. a real submit. Mutually exclusive. |
+| `--batch` | Apply to every approved job, up to the daily cap. |
+| `--tier-d` | Enable external-ATS (company career site) applies for this run. |
+| `--cover-letter` / `--no-cover-letter` | Force per-application cover-letter generation on/off for this run. |
+| `--force` | Skip the office-hours gate (does **not** bypass the daily or cost caps). |
+| `--keep-tier-d-open` | Leave the external-ATS browser open after the run, to inspect or finish by hand. |
+
+Safety belts are on by default: `dry_run` and `confirm_before_submit` in the profile,
+plus hard daily application and `$/day` cost caps. The full flag list and every profile
+knob are documented in [`docs/operating-manual.md`](../docs/operating-manual.md).
+
+### Where things live
+
+Same locations as the installed app — profile, `applications.db`, logs and the app's
+Chrome profile in `%APPDATA%\job-agent`; the API key in the OS keychain; Tier-D Chromium
+in `%LOCALAPPDATA%\ms-playwright`.
+
+### Optional: the desktop UI from source
+
+`pnpm tauri dev` runs the full app (run buttons, the profile form, the job queue). It
+additionally needs the **Rust toolchain** (rustup) and Tauri's prerequisites — it is
+**not** required for the CLI.
