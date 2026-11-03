@@ -1,7 +1,13 @@
-# Autojobication: downloads
+<p align="center">
+  <img src="logo.png" alt="Autojobication logo" width="128" height="128">
+</p>
 
+<h1 align="center">Autojobication: downloads</h1>
+
+<p align="center">
 Autojobication is a Windows desktop app that finds LinkedIn jobs that match
 your profile and applies to them for you, at a human pace, from your own computer.
+</p>
 
 ## ⬇️ Download
 
